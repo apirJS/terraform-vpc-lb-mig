@@ -2,10 +2,11 @@ variable "myvpc_id" {}
 variable "subnet_eu_id" {}
 variable "subnet_asia_id" {}
 variable "startup_script_url" {}
+variable "instance_group_eu_region" {}
+variable "instance_group_asia_region" {}
 
 resource "google_compute_instance_template" "instance_template_eu" {
-  name         = "instance_template_eu"
-  tags         = ["allow-https"]
+  tags         = ["allow-http", "allow-health-check"]
   machine_type = "f1-micro"
 
   scheduling {
@@ -29,8 +30,7 @@ resource "google_compute_instance_template" "instance_template_eu" {
 }
 
 resource "google_compute_instance_template" "instance_template_asia" {
-  name         = "instance_template_asia"
-  tags         = ["allow-https"]
+  tags         = ["allow-http", "allow-health-check"]
   machine_type = "f1-micro"
 
   scheduling {
@@ -53,24 +53,87 @@ resource "google_compute_instance_template" "instance_template_asia" {
   }
 }
 
-resource "google_compute_instance_group_manager" "instance_group_eu" {
+resource "google_compute_target_pool" "target_pool_eu" {
+  name   = "target_pool_eu"
+  region = var.instance_group_eu_region
+}
+
+resource "google_compute_target_pool" "target_pool_asia" {
+  name   = "target_pool_asia"
+  region = var.instance_group_asia_region
+}
+
+
+resource "google_compute_region_instance_group_manager" "instance_group_eu" {
   name               = "instance_group_eu"
   wait_for_instances = false
   target_size        = 2
+  region             = var.instance_group_eu_region
+  named_port {
+    name = "http"
+    port = 8080
+  }
   version {
     instance_template = google_compute_instance_template.instance_template_eu.id
+    name              = "eu"
   }
 
+  target_pools       = [google_compute_target_pool.target_pool_eu.id]
   base_instance_name = "vm-eu"
 }
 
-resource "google_compute_instance_group_manager" "instance_group_asia" {
+resource "google_compute_region_instance_group_manager" "instance_group_asia" {
   name               = "instance_group_asia"
   wait_for_instances = false
   target_size        = 2
+  region             = var.instance_group_asia_region
+  named_port {
+    name = "http"
+    port = 8080
+  }
   version {
     instance_template = google_compute_instance_template.instance_template_asia.id
+    name              = "asia"
   }
 
+  target_pools       = [google_compute_target_pool.target_pool_asia.id]
   base_instance_name = "vm-asia"
+}
+
+resource "google_compute_region_autoscaler" "autoscaler_eu" {
+  name   = "autoscaler-eu"
+  target = google_compute_region_instance_group_manager.instance_group_eu.id
+  region = var.instance_group_eu_region
+
+  autoscaling_policy {
+    max_replicas    = 5
+    min_replicas    = 1
+    cooldown_period = 60
+
+    cpu_utilization {
+      target = 0.8
+    }
+  }
+}
+
+resource "google_compute_region_autoscaler" "autoscaler_asia" {
+  name   = "autoscaler-asia"
+  target = google_compute_region_instance_group_manager.instance_group_asia.id
+  region = var.instance_group_asia_region
+  autoscaling_policy {
+    max_replicas    = 5
+    min_replicas    = 1
+    cooldown_period = 60
+
+    cpu_utilization {
+      target = 0.8
+    }
+  }
+}
+
+output "instance_group_eu" {
+  value = google_compute_region_instance_group_manager.instance_group_eu.instance_group
+}
+output "instance_group_asia" {
+  value = google_compute_region_instance_group_manager.instance_group_asia.instance_group
 }

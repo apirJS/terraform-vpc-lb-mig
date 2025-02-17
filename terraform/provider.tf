@@ -8,5 +8,6 @@ terraform {
 }
 
 provider "google" {
-  project = var.project_id
+  project     = var.project_id
+  credentials = var.path_to_serviceaccountkey
 }

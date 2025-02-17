@@ -1,3 +1,8 @@
+variable "path_to_serviceaccountkey" {
+  type        = string
+  description = "Path to your serviceaccountkey.json"
+}
+
 variable "project_id" {
   type        = string
   description = "example: qwiklabs-19218313"
@@ -24,6 +29,7 @@ variable "instance_group_asia_cidr" {
 }
 
 variable "default_startup_script_url" {
-  type = string
+  type        = string
   description = "example: gs://bucket/object.sh"
 }
+
