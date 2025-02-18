@@ -2,6 +2,10 @@
 
 ## Google Cloud Platform
 
+## Architecture
+
+![GCP Architecture](./architecture.png)
+
 ### Services
 
 - Classic Application External HTTPs Load Balancer
@@ -24,6 +28,7 @@ gcloud services enable compute.googleapis.com \
 ```
 
 ### Or you can add this code to `provider.tf` to enable APIs
+
 ```terraform
 resource "google_project_service" "services" {
   project                    = var.project_id
@@ -39,6 +44,7 @@ variable "services" {
 ```
 
 ### Create `terraform.tfvars` to fill the variables
+
 ```terraform
 var_1=value
 var_2=value
