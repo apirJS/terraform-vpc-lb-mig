@@ -179,7 +179,7 @@ resource "google_compute_ssl_certificate" "cert" {
 }
 
 resource "google_compute_url_map" "url_map" {
-  name            = "url-map"
+  name            = "my-lb"
   default_service = google_compute_backend_service.backend.self_link
 }
 
