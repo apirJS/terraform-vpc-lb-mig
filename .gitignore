@@ -1,4 +1,6 @@
 **/*.tfvars
-**/*.tfstate
+**/*.tfstate*
 **/credentials
 **/.terraform
+**/*plan*
+**/certs

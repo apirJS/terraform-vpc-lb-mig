@@ -1,9 +1,4 @@
-resource "null_resource" "enable_APIs" {
-  provisioner "local-exec" {
-    command     = "gcloud services enable compute.googleapis.com"
-    working_dir = path.module
-  }
-}
+
 
 module "network" {
   source                     = "./modules/network"
@@ -24,4 +19,19 @@ module "compute" {
   startup_script_url         = var.default_startup_script_url
   instance_group_asia_region = var.instance_group_asia_region
   instance_group_eu_region   = var.instance_group_eu_region
+}
+
+module "iam" {
+  source        = "./modules/iam"
+  project_id    = var.project_id
+  auditor_email = var.auditor_email
+  auditor_type  = var.auditor_type
+}
+
+
+module "suite" {
+  source                   = "./modules/suite"
+  dashboard_display_name   = var.dashboard_display_name
+  instance_group_asia_name = module.compute.instance_group_asia_name
+  instance_group_eu_name   = module.compute.instance_group_eu_name
 }

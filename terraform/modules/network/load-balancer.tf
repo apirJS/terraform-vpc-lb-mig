@@ -88,62 +88,123 @@ module "cloud-nat-asia" {
   name       = "${google_compute_network.myvpc.name}-cloud-nat-asia"
 }
 
-resource "google_compute_global_address" "lb_ip_address" {
-  name = "lb-ip-address"
-}
-
-resource "google_compute_backend_service" "lb_backend_eu" {
-  name                  = "lb-backend-eu"
-  protocol              = "HTTP"
-  port_name             = "my-port"
-  load_balancing_scheme = "EXTERNAL"
-}
-
+##### IF YOU WANT TO USE EXTERNAL MODULE
 # [START cloudloadbalancing_ext_http_gce]
-module "external-lb-http" {
-  source  = "terraform-google-modules/lb-http/google"
-  version = "~> 12.0"
-  name    = "lb"
-  project = var.project_id
-  target_tags = [
-    "allow-health-check"
-  ]
-  firewall_networks = [google_compute_network.myvpc.name]
-  backends = {
-    default = {
+# module "external-lb-http" {
+#   source  = "terraform-google-modules/lb-http/google"
+#   version = "~> 12.0"
+#   name    = "mylb"
+#   project = var.project_id
+#   target_tags = [
+#     "allow-health-check"
+#   ]
+#   firewall_networks = [google_compute_network.myvpc.name]
 
-      protocol    = "HTTP"
-      port        = 80
-      port_name   = "http"
-      timeout_sec = 10
-      enable_cdn  = false
 
-      health_check = {
-        request_path = "/"
-        port         = 80
-      }
+#   backends = {
+#     default = {
 
-      log_config = {
-        enable      = true
-        sample_rate = 1.0
-      }
+#       protocol    = "HTTP"
+#       port        = 80
+#       port_name   = "http"
+#       timeout_sec = 10
+#       enable_cdn  = false
 
-      groups = [
-        {
-          group = var.instance_group_eu
-        },
-        {
-          group = var.instance_group_asia
-        },
-      ]
+#       health_check = {
+#         request_path = "/"
+#         port         = 80
+#       }
 
-      iap_config = {
-        enable = false
-      }
-    }
+#       log_config = {
+#         enable      = true
+#         sample_rate = 1.0
+#       }
+
+#       groups = [
+#         {
+#           group = var.instance_group_eu
+#         },
+#         {
+#           group = var.instance_group_asia
+#         },
+#       ]
+
+#       iap_config = {
+#         enable = false
+#       }
+#     }
+#   }
+# }
+# [END cloudloadbalancing_ext_http_gce]
+
+resource "google_compute_health_check" "http_health_check" {
+  name = "http-health-check"
+  http_health_check {
+    port = 80
   }
 }
-# [END cloudloadbalancing_ext_http_gce]
+
+resource "google_compute_backend_service" "backend" {
+  name                  = "backend-service"
+  project               = var.project_id
+  load_balancing_scheme = "EXTERNAL"
+  health_checks         = [google_compute_health_check.http_health_check.self_link]
+
+  # EUROPE
+  backend {
+    group                 = var.instance_group_eu
+    balancing_mode        = "RATE"
+    max_rate_per_instance = 50
+  }
+  # ASIA
+  backend {
+    group                 = var.instance_group_asia
+    balancing_mode        = "RATE"
+    max_rate_per_instance = 50
+  }
+
+  log_config {
+    enable = true
+  }
+
+  iap {
+    enabled = false
+  }
+}
+
+resource "google_compute_ssl_certificate" "cert" {
+  certificate = file("${path.module}/../../certs/certificate.crt")
+  private_key = file("${path.module}/../../certs/private.key")
+  name        = "ssl-certificate"
+}
+
+resource "google_compute_url_map" "url_map" {
+  name            = "url-map"
+  default_service = google_compute_backend_service.backend.self_link
+}
+
+resource "google_compute_target_http_proxy" "http_proxy" {
+  name    = "http-proxy"
+  url_map = google_compute_url_map.url_map.self_link
+}
+resource "google_compute_target_https_proxy" "https_proxy" {
+  name             = "https-proxy"
+  url_map          = google_compute_url_map.url_map.self_link
+  ssl_certificates = [google_compute_ssl_certificate.cert.self_link]
+}
+
+resource "google_compute_global_forwarding_rule" "forwarding_rule_http" {
+  name        = "forwarding-rule-http"
+  target      = google_compute_target_http_proxy.http_proxy.self_link
+  ip_protocol = "TCP"
+  port_range  = "80"
+}
+resource "google_compute_global_forwarding_rule" "forwarding_rule_https" {
+  name        = "forwarding-rule-https"
+  target      = google_compute_target_https_proxy.https_proxy.self_link
+  ip_protocol = "TCP"
+  port_range  = "443"
+}
 
 output "myvpc_id" {
   value = google_compute_network.myvpc.id
@@ -158,5 +219,5 @@ output "subnet_asia_id" {
 }
 
 output "lb_external_ip" {
-  value = module.external-lb-http.external_ip
+  value = google_compute_global_forwarding_rule.forwarding_rule_http.ip_address
 }

@@ -52,51 +52,37 @@ resource "google_compute_instance_template" "instance_template_asia" {
     startup-script-url = "gs://cloud-training/gcpnet/httplb/startup.sh"
   }
 }
-
-resource "google_compute_target_pool" "target_pool_eu" {
-  name   = "target_pool_eu"
-  region = var.instance_group_eu_region
-}
-
-resource "google_compute_target_pool" "target_pool_asia" {
-  name   = "target_pool_asia"
-  region = var.instance_group_asia_region
-}
-
-
 resource "google_compute_region_instance_group_manager" "instance_group_eu" {
-  name               = "instance_group_eu"
+  name               = "instance-group-eu-${var.instance_group_eu_region}"
   wait_for_instances = false
-  target_size        = 2
+  target_size        = 1
   region             = var.instance_group_eu_region
   named_port {
     name = "http"
-    port = 8080
+    port = 80
   }
   version {
     instance_template = google_compute_instance_template.instance_template_eu.id
     name              = "eu"
   }
 
-  target_pools       = [google_compute_target_pool.target_pool_eu.id]
   base_instance_name = "vm-eu"
 }
 
 resource "google_compute_region_instance_group_manager" "instance_group_asia" {
-  name               = "instance_group_asia"
+  name               = "instance-group-asia-${var.instance_group_asia_region}"
   wait_for_instances = false
-  target_size        = 2
+  target_size        = 1
   region             = var.instance_group_asia_region
   named_port {
     name = "http"
-    port = 8080
+    port = 80
   }
   version {
     instance_template = google_compute_instance_template.instance_template_asia.id
     name              = "asia"
   }
 
-  target_pools       = [google_compute_target_pool.target_pool_asia.id]
   base_instance_name = "vm-asia"
 }
 
@@ -136,4 +122,11 @@ output "instance_group_eu" {
 }
 output "instance_group_asia" {
   value = google_compute_region_instance_group_manager.instance_group_asia.instance_group
+}
+
+output "instance_group_eu_name" {
+  value = google_compute_region_instance_group_manager.instance_group_eu.name
+}
+output "instance_group_asia_name" {
+  value = google_compute_region_instance_group_manager.instance_group_asia.name
 }

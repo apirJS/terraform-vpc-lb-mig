@@ -33,3 +33,18 @@ variable "default_startup_script_url" {
   description = "example: gs://bucket/object.sh"
 }
 
+variable "auditor_email" {
+  type        = string
+  description = "people who can audit this architecture"
+}
+
+variable "auditor_type" {
+  type        = string
+  description = "the type of the auditor email. example: user, group, serviceAccount."
+}
+
+variable "dashboard_display_name" {
+  type        = string
+  description = "example: My Dashboard"
+}
+

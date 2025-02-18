@@ -8,6 +8,7 @@ terraform {
 }
 
 provider "google" {
-  project     = var.project_id
-  credentials = var.path_to_serviceaccountkey
+  project         = var.project_id
+  credentials     = file("${path.module}/${var.path_to_serviceaccountkey}")
+  request_timeout = "20m"
 }
