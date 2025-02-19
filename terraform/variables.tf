@@ -28,19 +28,12 @@ variable "instance_group_asia_cidr" {
   description = "example: 10.100.20.0/24"
 }
 
-variable "default_startup_script_url" {
-  type        = string
-  description = "example: gs://bucket/object.sh"
-}
-
-variable "auditor_email" {
-  type        = string
-  description = "people who can audit this architecture"
-}
-
-variable "auditor_type" {
-  type        = string
-  description = "the type of the auditor email. example: user, group, serviceAccount."
+variable "auditors" {
+  type = list(object({
+    email = string
+    type  = string
+  }))
+  description = "auditors for this architecture"
 }
 
 variable "dashboard_display_name" {
@@ -48,3 +41,13 @@ variable "dashboard_display_name" {
   description = "example: My Dashboard"
 }
 
+variable "instance_startup_script_url" {
+  type        = string
+  description = "example: gs://bucket/startup.sh"
+}
+
+
+variable "auditor_roles" {
+  type        = list(string)
+  description = "example: ['roles/compute.viewer', 'roles/compute.networkViewer']"
+}

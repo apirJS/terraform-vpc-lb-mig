@@ -57,6 +57,21 @@ resource "google_compute_firewall" "allow_health_check" {
   target_tags = ["allow-health-check"]
 }
 
+resource "google_compute_firewall" "allow_ssh" {
+  project       = var.project_id
+  direction     = "INGRESS"
+  name          = "allow-ssh"
+  network       = google_compute_network.myvpc.id
+  description   = "Creates firewall rule targeting tagged instances"
+  source_ranges = ["0.0.0.0/0"]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+  target_tags = ["allow-ssh"]
+}
+
 
 # Router and Cloud NAT are required for installing packages from repos (apache, php etc)
 resource "google_compute_router" "router_eu" {
@@ -71,22 +86,35 @@ resource "google_compute_router" "router_asia" {
 }
 
 module "cloud-nat-eu" {
-  source     = "terraform-google-modules/cloud-nat/google"
-  version    = "~> 5.0"
-  router     = google_compute_router.router_eu.name
-  project_id = var.project_id
-  region     = var.instance_group_eu_region
-  name       = "${google_compute_network.myvpc.name}-cloud-nat-eu"
+  source                             = "terraform-google-modules/cloud-nat/google"
+  version                            = "~> 5.0"
+  project_id                         = var.project_id
+  region                             = var.instance_group_eu_region
+  router                             = google_compute_router.router_eu.name
+  name                               = "${google_compute_network.myvpc.name}-cloud-nat-eu"
+  source_subnetwork_ip_ranges_to_nat = "LIST_OF_SUBNETWORKS"
+  subnetworks = [{
+    name                     = google_compute_subnetwork.subnet_eu.name
+    source_ip_ranges_to_nat  = ["ALL_IP_RANGES"]
+    secondary_ip_range_names = []
+  }]
 }
 
 module "cloud-nat-asia" {
-  source     = "terraform-google-modules/cloud-nat/google"
-  version    = "~> 5.0"
-  router     = google_compute_router.router_asia.name
-  project_id = var.project_id
-  region     = var.instance_group_asia_region
-  name       = "${google_compute_network.myvpc.name}-cloud-nat-asia"
+  source                             = "terraform-google-modules/cloud-nat/google"
+  version                            = "~> 5.0"
+  project_id                         = var.project_id
+  region                             = var.instance_group_asia_region
+  router                             = google_compute_router.router_asia.name
+  name                               = "${google_compute_network.myvpc.name}-cloud-nat-asia"
+  source_subnetwork_ip_ranges_to_nat = "LIST_OF_SUBNETWORKS"
+  subnetworks = [{
+    name                     = google_compute_subnetwork.subnet_asia.name
+    source_ip_ranges_to_nat  = ["ALL_IP_RANGES"]
+    secondary_ip_range_names = []
+  }]
 }
+
 
 ##### IF YOU WANT TO USE EXTERNAL MODULE
 # [START cloudloadbalancing_ext_http_gce]
@@ -137,6 +165,7 @@ module "cloud-nat-asia" {
 # }
 # [END cloudloadbalancing_ext_http_gce]
 
+# Manual implementation of Classic External Application HTTP Load Balancer
 resource "google_compute_health_check" "http_health_check" {
   name = "http-health-check"
   http_health_check {
@@ -148,7 +177,7 @@ resource "google_compute_backend_service" "backend" {
   name                  = "backend-service"
   project               = var.project_id
   load_balancing_scheme = "EXTERNAL"
-  health_checks         = [google_compute_health_check.http_health_check.self_link]
+  health_checks         = [google_compute_health_check.http_health_check.id]
 
   # EUROPE
   backend {
@@ -180,28 +209,28 @@ resource "google_compute_ssl_certificate" "cert" {
 
 resource "google_compute_url_map" "url_map" {
   name            = "my-lb"
-  default_service = google_compute_backend_service.backend.self_link
+  default_service = google_compute_backend_service.backend.id
 }
 
 resource "google_compute_target_http_proxy" "http_proxy" {
   name    = "http-proxy"
-  url_map = google_compute_url_map.url_map.self_link
+  url_map = google_compute_url_map.url_map.id
 }
 resource "google_compute_target_https_proxy" "https_proxy" {
   name             = "https-proxy"
-  url_map          = google_compute_url_map.url_map.self_link
-  ssl_certificates = [google_compute_ssl_certificate.cert.self_link]
+  url_map          = google_compute_url_map.url_map.id
+  ssl_certificates = [google_compute_ssl_certificate.cert.id]
 }
 
 resource "google_compute_global_forwarding_rule" "forwarding_rule_http" {
   name        = "forwarding-rule-http"
-  target      = google_compute_target_http_proxy.http_proxy.self_link
+  target      = google_compute_target_http_proxy.http_proxy.id
   ip_protocol = "TCP"
   port_range  = "80"
 }
 resource "google_compute_global_forwarding_rule" "forwarding_rule_https" {
   name        = "forwarding-rule-https"
-  target      = google_compute_target_https_proxy.https_proxy.self_link
+  target      = google_compute_target_https_proxy.https_proxy.id
   ip_protocol = "TCP"
   port_range  = "443"
 }

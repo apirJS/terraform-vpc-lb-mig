@@ -1,12 +1,12 @@
 variable "myvpc_id" {}
 variable "subnet_eu_id" {}
 variable "subnet_asia_id" {}
-variable "startup_script_url" {}
 variable "instance_group_eu_region" {}
 variable "instance_group_asia_region" {}
+variable "instance_startup_script_url" {}
 
 resource "google_compute_instance_template" "instance_template_eu" {
-  tags         = ["allow-http", "allow-health-check"]
+  tags         = ["allow-http", "allow-health-check", "allow-ssh"]
   machine_type = "f1-micro"
 
   scheduling {
@@ -25,12 +25,12 @@ resource "google_compute_instance_template" "instance_template_eu" {
   }
 
   metadata = {
-    startup-script-url = "gs://cloud-training/gcpnet/httplb/startup.sh"
+    startup-script-url = var.instance_startup_script_url
   }
 }
 
 resource "google_compute_instance_template" "instance_template_asia" {
-  tags         = ["allow-http", "allow-health-check"]
+  tags         = ["allow-http", "allow-health-check", "allow-ssh"]
   machine_type = "f1-micro"
 
   scheduling {
@@ -49,7 +49,7 @@ resource "google_compute_instance_template" "instance_template_asia" {
   }
 
   metadata = {
-    startup-script-url = "gs://cloud-training/gcpnet/httplb/startup.sh"
+    startup-script-url = var.instance_startup_script_url
   }
 }
 resource "google_compute_region_instance_group_manager" "instance_group_eu" {
